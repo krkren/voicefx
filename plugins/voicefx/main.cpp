@@ -6,7 +6,8 @@
 //   buffer.open("ai0001");             // filter chain as it opens one
 //
 // A VoiceFX serves one buffer at a time. The settings may change while it plays (from the next
-// block on). With an echo or a reverb, the sound plays on after its end until they have died
+// block on). It may be invalidated while a buffer has it: the buffer lets go of it later (as it
+// opens another sound, or goes), and it goes then. With an echo or a reverb, the sound plays on after its end until they have died
 // away (the buffer's position stays at the end meanwhile).
 //
 // Members: preset (a name; setting it sets every setting), the settings by name (lowcut,
@@ -68,7 +69,12 @@ std::string toAscii(const ttstr &s) {
 
 } // namespace
 
-class VoiceFX : public iTVPBasicWaveFilter, public tTVPSampleAndLabelSource {
+// What the engine holds: the buffer keeps its pointer from open() until it opens another sound
+// or goes (Clear), which may be after the script's VoiceFX is gone (invalidated, or collected),
+// so the script's object only lets it go (release), and it deletes itself once no buffer has it,
+// as the engine's PhaseVocoder outlives its script object's invalidation
+class VoiceFXCore : public iTVPBasicWaveFilter, public tTVPSampleAndLabelSource {
+public:
 	std::mutex lock;
 	voicefx::Settings settings;   // what scripts set
 	bool dirty = true;
@@ -81,13 +87,24 @@ class VoiceFX : public iTVPBasicWaveFilter, public tTVPSampleAndLabelSource {
 	std::vector<uint8_t> convert;
 	bool sourceEnded = false;
 	uint64_t tailFrames = 0;
+	bool released = false;   // the script's object is gone
 
-public:
-	VoiceFX() {
+	VoiceFXCore() {
 		std::memset(&inFormat, 0, sizeof inFormat);
 		std::memset(&outFormat, 0, sizeof outFormat);
 	}
-	virtual ~VoiceFX() {}
+	virtual ~VoiceFXCore() {}
+
+	// the script's object is gone: delete now, or once the buffer that has it lets it go
+	void release() {
+		std::unique_lock<std::mutex> hold(lock);
+		if (source) {
+			released = true;
+			return;
+		}
+		hold.unlock();
+		delete this;
+	}
 
 	// --- the engine's side ---
 
@@ -113,10 +130,13 @@ public:
 	}
 
 	void Clear() override {
-		std::lock_guard<std::mutex> hold(lock);
+		std::unique_lock<std::mutex> hold(lock);
 		source = nullptr;
 		convert.clear();
 		convert.shrink_to_fit();
+		if (!released) return;
+		hold.unlock();
+		delete this;
 	}
 
 	void Update() override {}
@@ -168,12 +188,26 @@ public:
 		}
 	}
 
-	// --- for scripts ---
+};
 
-	tjs_int64 getInterface() { return tjs_int64(reinterpret_cast<intptr_t>(static_cast<iTVPBasicWaveFilter *>(this))); }
+// The script's object
+class VoiceFX {
+	VoiceFXCore *core;
+	std::mutex &lock;
+	voicefx::Settings &settings;
+	bool &dirty;
+	std::string &presetName;
+
+public:
+	VoiceFX()
+	    : core(new VoiceFXCore()), lock(core->lock), settings(core->settings), dirty(core->dirty),
+	      presetName(core->presetName) {}
+	~VoiceFX() { core->release(); }
+
+	tjs_int64 getInterface() { return tjs_int64(reinterpret_cast<intptr_t>(static_cast<iTVPBasicWaveFilter *>(core))); }
 	bool getConnected() {
 		std::lock_guard<std::mutex> hold(lock);
-		return source != nullptr;
+		return core->source != nullptr;
 	}
 
 	ttstr getPreset() { return ttstr(presetName.c_str()); }
