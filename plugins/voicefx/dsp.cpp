@@ -34,51 +34,49 @@ bool Settings::preset(const std::string &name) {
 	if (name == "none" || name.empty()) {
 		// as made
 	} else if (name == "echo") {
-		// a memory, an inner voice: repeats that fade, a little darker each time
-		s.delay = 260;
-		s.feedback = 42;
-		s.echo = 55;
-		s.damping = 45;
-		s.room = 30;
-		s.reverb = 12;
+		// a memory, an inner voice: a few repeats well under the voice, darker each time, in a
+		// small room
+		s.delay = 240;
+		s.feedback = 25;
+		s.echo = 26;
+		s.damping = 55;
+		s.room = 35;
+		s.reverb = 18;
 	} else if (name == "phone") {
-		// a thin voice through a telephone's band, a little crushed
-		s.lowcut = 320;
-		s.highcut = 3300;
-		s.order = 4;
-		s.drive = 28;
+		// a call: the voice's band without its lows and highs, a touch of crunch
+		s.lowcut = 350;
+		s.highcut = 3200;
+		s.order = 2;
+		s.drive = 8;
 		s.mono = true;
-		s.gain = 115;
+		s.gain = 125;
 	} else if (name == "muffled") {
-		// through a door or a wall: the highs gone and quieter
-		s.highcut = 520;
-		s.order = 4;
-		s.lowcut = 70;
-		s.room = 18;
-		s.reverb = 8;
-		s.gain = 80;
+		// through a door or a wall: the highs softened, a little quieter
+		s.highcut = 1100;
+		s.order = 2;
+		s.room = 15;
+		s.reverb = 10;
+		s.gain = 90;
 	} else if (name == "hall") {
-		// a large room
-		s.room = 82;
-		s.reverb = 38;
-		s.damping = 35;
-		s.dry = 85;
+		// a large room, behind the voice
+		s.room = 70;
+		s.reverb = 30;
+		s.damping = 40;
 	} else if (name == "cave") {
-		s.room = 92;
-		s.reverb = 45;
-		s.damping = 15;
-		s.delay = 180;
-		s.feedback = 30;
-		s.echo = 25;
-		s.dry = 80;
+		s.room = 85;
+		s.reverb = 42;
+		s.damping = 20;
+		s.delay = 160;
+		s.feedback = 22;
+		s.echo = 22;
 	} else if (name == "radio") {
-		// a transceiver: a narrower band, more crackle
-		s.lowcut = 500;
+		// a transceiver: a narrower band and more crunch than a phone
+		s.lowcut = 450;
 		s.highcut = 2800;
 		s.order = 4;
-		s.drive = 55;
+		s.drive = 18;
 		s.mono = true;
-		s.gain = 105;
+		s.gain = 145;
 	} else {
 		return false;
 	}
@@ -212,13 +210,15 @@ void Effect::process(float *samples, int frames) {
 	const Settings &s = settings_;
 	const int n = channels_;
 	const bool hp = s.lowcut > 0, lp = s.highcut > 0, four = s.order >= 4;
-	// soft clipping that keeps a voice about as loud: quiet parts rise, loud ones flatten
-	const double driveK = 1 + s.drive / 8.0, driveNorm = 1.0 / std::sqrt(driveK);
+	// soft clipping that leaves quiet parts as they are and flattens loud ones
+	const double driveK = 1 + s.drive / 8.0, driveNorm = 1.0 / driveK;
 	const bool echo = s.delay > 0 && s.echo > 0;
 	const double fb = s.feedback / 100.0, echoLevel = s.echo / 100.0, damp = s.damping / 100.0 * 0.85;
 	const bool verb = s.room > 0 && s.reverb > 0;
+	// reverb 100 % is about as loud as the voice whatever the room's size: the combs ring longer
+	// and louder as their feedback rises, so their sum is scaled down by sqrt(1 - feedback^2)
 	const double roomFb = 0.70 + s.room / 100.0 * 0.28, verbDamp = s.damping / 100.0 * 0.5,
-	             verbLevel = s.reverb / 100.0 * 0.09;
+	             verbLevel = s.reverb / 100.0 * 0.07 * std::sqrt(1 - roomFb * roomFb);
 	const double dry = s.dry / 100.0, gain = s.gain / 100.0;
 	double loud = 0;
 	for (int f = 0; f < frames; f++) {

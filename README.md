@@ -4,7 +4,9 @@ A sound filter plugin for the Kirikiri Z engine (krkrz_dev): `VoiceFX`, an effec
 `WaveSoundBuffer`'s `filters`, for the voices of a visual novel as commercial games have them:
 an echo on a memory or an inner voice, a thin voice on the phone, a muffled one through a door,
 a hall, a cave, a radio. Written from the filter designs in the textbooks (RBJ's biquads,
-Butterworth's poles, Schroeder's reverb), with no code from elsewhere.
+Butterworth's poles, Schroeder's reverb), with no code from elsewhere. The presets are meant to be
+heard without getting in the way of the line: a voice keeps its loudness, and an echo or a room
+sits about 10 dB under it (a cave's about 6).
 
 Written for [KAGEX](https://github.com/krkren/kagex), whose engines have it built in and whose
 World sets it per character with a tag, but it works with any game on those engines.
@@ -41,10 +43,10 @@ another sound or goes itself, and the filter goes then.
 |---|---|---|
 | `lowcut`, `highcut` | Butterworth high- and low-pass filters, Hz | 0 |
 | `order` | 2 or 4 (12 or 24 dB an octave) | 2 |
-| `drive` | soft clipping before the filters, 0-100: a line's crackle, about as loud | 0 |
+| `drive` | soft clipping before the filters, 0-100: a line's crunch; quiet parts stay as they are, loud ones flatten | 0 |
 | `mono` | both channels the same | 0 |
 | `delay`, `feedback`, `echo`, `damping` | an echo: its delay (ms), how much comes round again (0-95 %), its level (0-100 %), each repeat darker by damping (0-100 %) | 0 |
-| `room`, `reverb` | a reverb: room size 0-100, its level 0-100 % (with `damping`) | 0 |
+| `room`, `reverb` | a reverb: room size 0-100, its level 0-100 % (100: about as loud as the voice, whatever the room's size; with `damping`) | 0 |
 | `dry` | the processed voice's own level, % | 100 |
 | `gain` | the whole effect's level, % | 100 |
 | `tail` | the most the effect rings on after the sound, ms | 8000 |
@@ -64,9 +66,10 @@ cmake -B build -DKRKRZ_DEV_DIR=/path/to/krkrz_dev && cmake --build build && ctes
 ```
 
 `dsp.cpp` has no engine in it; `tests/dsp_test.cpp` checks that `none` changes nothing, the
-phone's and the door's filters (a 4th-order band of 320-3300 Hz cuts 80 Hz and 9 kHz by more than
-30 dB), the echo's repeats (where and how loud), that the reverb stays bounded, that what rings on
-dies away and that a reset silences it.
+phone's and the door's filters (the phone's 350-3200 Hz band cuts 80 Hz by more than 20 dB and
+9 kHz by more than 15), that the reverb at 100 % is about as loud as the voice in any room, the
+echo's repeats (where and how loud), that the reverb stays bounded, that what rings on dies away
+and that a reset silences it.
 
 ## How it plugs in
 

@@ -5,11 +5,13 @@
 // set of settings:
 //
 //   lowcut, highcut   Butterworth high- and low-pass filters (Hz; 0 off), of order 2 or 4
-//   drive             soft clipping, 0-100 (a phone's or a radio's crackle), before the filters
+//   drive             soft clipping, 0-100 (a phone's or a radio's crunch), before the filters:
+//                     quiet parts as they are, loud ones flattened
 //   mono              both channels the same
 //   delay, feedback,  an echo: delay ms, feedback 0-95 %, the echo's level 0-100 %, its
 //   echo, damping     repeats darker by damping 0-100 %
-//   room, reverb      a reverb (a hall, a cave): room size 0-100, its level 0-100 % (damping too)
+//   room, reverb      a reverb (a hall, a cave): room size 0-100, its level 0-100 % (100 about
+//                     as loud as the voice in any room; damping too)
 //   dry               the processed voice's own level, 0-100 % (100)
 //   gain              the whole effect's level, % (100)
 //

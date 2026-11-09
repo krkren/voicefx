@@ -4,6 +4,8 @@
 // SPDX-License-Identifier: 0BSD
 #include "dsp.h"
 
+#include <algorithm>
+
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -70,22 +72,49 @@ int main() {
 	}
 	CHECK(!Settings().preset("nonsense"));
 
-	// the phone: about as loud in its band; its filters (without the crackle, whose harmonics of a
-	// low hum fall in the band, as on a real line) cut the lows and highs hard
+	// the phone: about as loud in its band; its filters (without the crunch, whose harmonics of a
+	// low hum fall in the band, as on a real line) cut the lows and highs
 	double phoneMid = db(sineLevel("phone", 1000));
 	double bandMid = db(sineLevel("phone", 1000, true)), bandLow = db(sineLevel("phone", 80, true)),
 	       bandHigh = db(sineLevel("phone", 9000, true));
 	std::printf("phone: 1 kHz %.1f dB; its band: 1 kHz %.1f dB, 80 Hz %.1f dB, 9 kHz %.1f dB\n", phoneMid, bandMid,
 	            bandLow, bandHigh);
 	CHECK(phoneMid > -3 && phoneMid < 3);
-	CHECK(bandLow < bandMid - 30);
-	CHECK(bandHigh < bandMid - 30);
+	CHECK(bandLow < bandMid - 20);
+	CHECK(bandHigh < bandMid - 15);
 
-	// through a door: the voice's body through, its highs gone
+	// through a door: the voice's body through, its highs softened
 	double doorLow = db(sineLevel("muffled", 200)), doorHigh = db(sineLevel("muffled", 4000));
 	std::printf("muffled: 200 Hz %.1f dB, 4 kHz %.1f dB\n", doorLow, doorHigh);
 	CHECK(doorLow > -6);
-	CHECK(doorHigh < doorLow - 40);
+	CHECK(doorHigh < doorLow - 15);
+
+	// the reverb at 100 % is about as loud as the voice while it speaks, in a small room and a large one
+	for (double room : {10.0, 92.0}) {
+		Settings dryS, wetS;
+		wetS.room = room;
+		wetS.reverb = 100;
+		wetS.dry = 0;
+		std::vector<float> burst(size_t(RATE * 2), 0.0f);
+		uint32_t r = 12345;
+		for (size_t k = 0; k < size_t(RATE / 2); k++) {
+			r = r * 1664525u + 1013904223u;
+			burst[k] = float((int32_t(r >> 8) % 20000) / 100000.0);
+		}
+		auto energy = [&](const Settings &s) {
+			Effect e;
+			e.configure(s);
+			e.start(RATE, 1);
+			std::vector<float> b = burst;
+			for (size_t p = 0; p < b.size(); p += 512) e.process(b.data() + p, int(std::min<size_t>(512, b.size() - p)));
+			double sum = 0; // while the voice is there
+			for (size_t k = 0; k < size_t(RATE / 2); k++) sum += double(b[k]) * b[k];
+			return sum;
+		};
+		double ratio = 10 * std::log10(energy(wetS) / energy(dryS));
+		std::printf("reverb 100 %% in room %.0f: %.1f dB against the voice\n", room, ratio);
+		CHECK(ratio > -5 && ratio < 3);
+	}
 
 	// the echo: an impulse comes back after the delay, at the echo's level, then quieter
 	{
