@@ -25,6 +25,9 @@ A `VoiceFX` serves one buffer at a time. Its settings may change while it plays 
 block of samples on). With an echo or a reverb, the sound plays on after its end until they've
 died away (at most `tail` ms); meanwhile the buffer's `position` stays at the end.
 
+It may be invalidated while a buffer has it: the buffer still holds the filter until it opens
+another sound or goes itself, and the filter goes then.
+
 | Member | |
 |---|---|
 | `preset` | a preset's name; setting it sets every setting: `none`, `echo`, `phone`, `muffled`, `hall`, `cave`, `radio` |
