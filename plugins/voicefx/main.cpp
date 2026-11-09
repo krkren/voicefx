@@ -27,8 +27,13 @@
 
 // ------------------------------------------------------------------------
 // The engine's sound filter interfaces, as the engine declares them (common/sound/WaveIntf.h,
-// WaveLoopManager.h); the filter never touches the segment queue, so it stays opaque
+// WaveLoopManager.h); the filter never touches the segment queue, so it stays opaque. In a
+// namespace of their own: where plugins are linked into the engine (the web, Android, iOS) the
+// engine's classes of these names are there too, and the engine reaches these only through
+// their pointers, so only their layout matters
 // ------------------------------------------------------------------------
+
+namespace voicefx_engine {
 
 class tTVPWaveSegmentQueue;
 
@@ -46,6 +51,12 @@ public:
 	virtual void Update(void) = 0;
 	virtual void Reset(void) = 0;
 };
+
+} // namespace voicefx_engine
+
+using voicefx_engine::iTVPBasicWaveFilter;
+using voicefx_engine::tTVPSampleAndLabelSource;
+using voicefx_engine::tTVPWaveSegmentQueue;
 
 namespace {
 
